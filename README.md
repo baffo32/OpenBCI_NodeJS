@@ -473,13 +473,17 @@ ourBoard.channelSet(2,false,24,'normal',true,true,false);
 // sends ['x','2','0','6','0','1','1','0','X'] to the command queue
 ```
 
-### <a name="method-connect"></a> .connect(portName)
+### <a name="method-connect"></a> .connect(portName, dontReset)
 
 The essential precursor method to be called initially to establish a serial connection to the OpenBCI board.
 
 **_portName_**
 
 The system path of the OpenBCI board serial port to open. For example, `/dev/tty` on Mac/Linux or `COM1` on Windows.
+
+**_dontReset_**
+
+If set, the board will not be reset upon connection success.
 
 **_Returns_** a promise, fulfilled by a successful serial connection to the board.
 

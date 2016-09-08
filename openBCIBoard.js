@@ -182,7 +182,7 @@ function OpenBCIFactory() {
         this.writer = null;
         // Numbers
         this.badPackets = 0;
-        this.curParsingMode = k.OBCIParsingReset;
+        this.curParsingMode = k.OBCIParsingNormal; // changed by softReset()
         this.commandsToWrite = 0;
         this.impedanceArray = openBCISample.impedanceArray(k.numberOfChannelsForBoardType(this.options.boardType));
         this.writeOutDelay = k.OBCIWriteIntervalDelayMSShort;
@@ -212,10 +212,11 @@ function OpenBCIFactory() {
      * @description The essential precursor method to be called initially to establish a
      *              serial connection to the OpenBCI board.
      * @param portName - a string that contains the port name of the OpenBCIBoard.
+     * @param dontReset - if true, board will not be initialized, but left in current state
      * @returns {Promise} if the board was able to connect.
      * @author AJ Keller (@pushtheworldllc)
      */
-    OpenBCIBoard.prototype.connect = function(portName) {
+    OpenBCIBoard.prototype.connect = function(portName, dontReset) {
         this.connected = false;
 
         return new Promise((resolve,reject) => {
@@ -259,6 +260,21 @@ function OpenBCIFactory() {
             boardSerial.once('open',() => {
                 var timeoutLength = this.options.simulate ? 50 : 300;
                 if(this.options.verbose) console.log('Serial port open');
+                if(dontReset) {
+                    this.streaming = false;
+                    var t, l;
+                    t = setTimeout(() => {
+                        this.removeListener('sample', l);
+                        resolve();
+                    },2 * 1000 / this.sampleRate());
+                    l = () => {
+                        clearTimeout(t);
+                        this.streaming = true;
+                        resolve();
+                    };
+                    this.once('sample',l);
+                    return;
+                }
                 setTimeout(() => {
                     if(this.options.verbose) console.log('Sending stop command, in case the device was left streaming...');
                     this.write(k.OBCIStreamStop);
@@ -287,14 +303,15 @@ function OpenBCIFactory() {
     /**
      * @description Closes the serial port. Waits for stop streaming command to
      *  be sent if currently streaming.
+     * @param dontStop - allow the board to keep streaming after disconnection
      * @returns {Promise} - fulfilled by a successful close of the serial port object, rejected otherwise.
      * @author AJ Keller (@pushtheworldllc)
      */
-    OpenBCIBoard.prototype.disconnect = function() {
+    OpenBCIBoard.prototype.disconnect = function(dontStop) {
         // if we are streaming then we need to give extra time for that stop streaming command to propagate through the
         //  system before closing the serial port.
         var timeout = 0;
-        if (this.streaming) {
+        if (this.streaming && ! dontStop) {
             this.streamStop();
             if(this.options.verbose) console.log('stop streaming');
             timeout = 15; // Avg time is takes for message to propagate
