@@ -182,7 +182,7 @@ function OpenBCIFactory() {
         this.writer = null;
         // Numbers
         this.badPackets = 0;
-        this.curParsingMode = k.OBCIParsingNormal; // changed by softReset()
+        this.curParsingMode = k.OBCIParsingReset;
         this.commandsToWrite = 0;
         this.impedanceArray = openBCISample.impedanceArray(k.numberOfChannelsForBoardType(this.options.boardType));
         this.writeOutDelay = k.OBCIWriteIntervalDelayMSShort;
@@ -262,6 +262,7 @@ function OpenBCIFactory() {
                 if(this.options.verbose) console.log('Serial port open');
                 if(dontReset) {
                     this.streaming = false;
+                    this.curParsingMode = k.OBCIParsingNormal;
                     var t, l;
                     t = setTimeout(() => {
                         this.removeListener('sample', l);
