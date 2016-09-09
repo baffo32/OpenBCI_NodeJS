@@ -422,38 +422,190 @@ describe('openbci-sdk',function() {
             if (spy) spy.reset();
         });
         describe('#connect/disconnect/streamStart/streamStop', function () {
-            it('gets the ready signal from the board and sends a stop streaming command before disconnecting', function(done) {
-                //spy = sinon.spy(ourBoard,"_writeAndDrain");
+            describe('#connect', function() {
+                it('should open a connection, send a stop streaming command and a soft reset', function(done) {
+                    ourBoard.once('ready', function() {
+                        // Make sure the stop and then soft reset commands were called
+                        spy.firstCall.should.have.been.calledWith(k.OBCIStreamStop);
+                        spy.secondCall.should.have.been.calledWith(k.OBCIMiscSoftReset);
 
-                ourBoard.connect(masterPortName).catch(err => done(err));
+                        // Should set connected to true
+                        expect(ourBoard.connected).to.be.true;
 
-                ourBoard.once('ready', function() {
-                    ourBoard.streamStart().catch(err => done(err)); // start streaming
-
-                    ourBoard.once('sample',(sample) => { // wait till we get a sample
-                        ourBoard.disconnect().then(() => { // call disconnect
-                            //console.log('Device is streaming: ' + ourBoard.streaming ? 'true' : 'false');
-                            setTimeout(() => {
-                                spy.should.have.been.calledWithMatch(k.OBCIStreamStop);
+                        // Must disconnect from board for the sake of tests
+                        ourBoard.disconnect().then(function() { // call disconnect
+                            setTimeout(function() {
                                 var conditionalTimeout = realBoard ? 300 : 0;
-                                setTimeout(() => {
+                                setTimeout(function() {
                                     done();
                                 }, conditionalTimeout);
                             }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
-                        }).catch(err => done(err));
+                        }).catch(done);
+                    });
+
+                    // Call the function under test
+                    ourBoard.connect(masterPortName).then(function() {
+                        // Should be looking for the reset message
+                        expect(ourBoard.curParsingMode).to.equal(k.OBCIParsingReset);
+                    }).catch(done);
+                });
+                it('should, after promise resolves, set streaming false if dontReset was false not send a stop stream command or softReset commands', function(done) {
+                    // Call the function under test
+                    ourBoard.connect(masterPortName,true).then(function() {
+                        // Defaults to a non streaming state
+                        expect(ourBoard.streaming).to.be.false;
+
+                        // Should not be looking for the reset message, should be in
+                        //  normal mode
+                        expect(ourBoard.curParsingMode).to.equal(k.OBCIParsingNormal);
+
+                        // Must disconnect from board for the sake of other tests
+                        ourBoard.disconnect().then(function() { // call disconnect
+                            setTimeout(function() {
+                                var conditionalTimeout = realBoard ? 300 : 0;
+                                setTimeout(function() {
+                                    done();
+                                }, conditionalTimeout);
+                            }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
+                        }).catch(done);
+                    }).catch(done);
+
+                    setTimeout(function() {
+                        // Make sure the write function was not called
+                        spy.called.should.be.false;
+
+                    }, 400); // softReset sent after 300 ms.
+
+                });
+                it('should, after promise resolves, set streaming true if dontReset was true and a sample is emitted within 2 seconds', function(done) {
+
+                    // Call the function under test
+                    ourBoard.connect(masterPortName,true).then(function() {
+                        // Defaults to a non streaming state
+                        expect(ourBoard.streaming).to.be.true;
+                        // Must disconnect from board for the sake of other tests
+                        ourBoard.disconnect().then(function() { // call disconnect
+                            setTimeout(function() {
+                                var conditionalTimeout = realBoard ? 300 : 0;
+                                setTimeout(function() {
+                                    done();
+                                }, conditionalTimeout);
+                            }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
+                        }).catch(done);
+                    }).catch(done);
+
+                    setTimeout(function() {
+                        // Make sure the write function was not called
+                        spy.called.should.be.false;
+
+                        // This will cause sample to be emitted.
+                        ourBoard._processBytes(openBCISample.samplePacket(0));
+
+                    }, 400); // softReset sent after 300 ms.
+                });
+            });
+            describe('#disconnect', function() {
+                it('should be rejected if not connected', function(done) {
+                    ourBoard.disconnect().should.be.rejected.and.notify(done);
+                });
+                it('should disconnect if connected', function(done) {
+                    ourBoard.connected = true;
+
+                    ourBoard.disconnect().then(function() {
+                        expect(ourBoard.connected).to.be.false;
+                        done();
+                    }).catch(done);
+                });
+                it('should close the serial port if open', function(done) {
+                    ourBoard.connect(masterPortName).then(function() {
+                        // Call the function under test
+                        ourBoard.disconnect().catch(done);
+                    }).catch(done);
+
+                    // Close will be emitted when the serial port is closed
+                    ourBoard.once('close', function() {
+                        console.log('closed up here calling done');
+                        done();
+                    });
+                });
+                xit('should call stream stop if streaming', function(done) {
+                    ourBoard.connect(masterPortName).catch(done);
+
+                    ourBoard.once('ready', function() {
+                        console.log(`board is connected ${ourBoard.connected}`);
+                        ourBoard.streamStart().catch(done); // start streaming
+
+                        ourBoard.once('sample', function(sample) { // wait till we get a sample
+                            // Reset the spy for the actual function under test
+                            console.log('yo');
+                            spy.reset();
+                            ourBoard.disconnect().then(function() {
+                                setTimeout(function() {
+                                    spy.should.have.been.calledWithExactly(k.OBCIStreamStop);
+                                    done();
+                                }, 20); // Disconnect only waits 15ms
+                            }).catch(done);
+                        });
+                    });
+                });
+                xit('should not call stream stop if dontStop is true', function(done) {
+                    ourBoard.connect(masterPortName).catch(done);
+
+                    ourBoard.once('ready', function() {
+                        ourBoard.streamStart().catch(done); // start streaming
+
+                        ourBoard.once('sample', function(sample) { // wait till we get a sample
+                            // Reset the spy for the actual function under test
+                            spy.reset();
+                            ourBoard.disconnect(true).then(function() { // call disconnect with `dontReset` to true
+                                console.log('Device is streaming: ' + ourBoard.streaming ? 'true' : 'false');
+                                expect(spy.called).to.be.false;
+                                expect(ourBoard.streaming).to.be.true;
+                                // Now we need to connect and stop the stream
+                                ourBoard.connect(masterPortName, true).then(function() {
+                                    ourBoard.streamStop().then(function() {
+                                        ourBoard.disconnect().then(function() {
+                                            done();
+                                        }).catch(done);
+                                    })
+                                }).catch(done);
+                            }).catch(done);
+                        });
+                    });
+                });
+            });
+            it('gets the ready signal from the board and sends a stop streaming command before disconnecting', function(done) {
+                //spy = sinon.spy(ourBoard,"_writeAndDrain");
+
+                ourBoard.connect(masterPortName).catch(done);
+
+                ourBoard.once('ready', function() {
+                    ourBoard.streamStart().catch(done); // start streaming
+
+                    ourBoard.once('sample',(sample) => { // wait till we get a sample
+                        ourBoard.disconnect().then(function() { // call disconnect
+                            //console.log('Device is streaming: ' + ourBoard.streaming ? 'true' : 'false');
+                            setTimeout(function() {
+                                spy.should.have.been.calledWithMatch(k.OBCIStreamStop);
+                                var conditionalTimeout = realBoard ? 300 : 0;
+                                setTimeout(function() {
+                                    done();
+                                }, conditionalTimeout);
+                            }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
+                        }).catch(done);
                     });
                 });
             });
             it('rawDataPacket is emitted', function(done) {
-                ourBoard.connect(masterPortName).catch(err => done(err));
+                ourBoard.connect(masterPortName).catch(done);
                 // for the ready signal test
                 ourBoard.once('ready', function() {
-                    ourBoard.streamStart().catch(err => done(err)); // start streaming
+                    ourBoard.streamStart().catch(done); // start streaming
 
                     ourBoard.once('rawDataPacket',(rawDataPacket) => { // wait till we get a raw data packet
-                        ourBoard.disconnect().then(() => { // call disconnect
+                        ourBoard.disconnect().then(function() { // call disconnect
                             done();
-                        }).catch(err => done(err));
+                        }).catch(done);
                     });
                 });
             });
@@ -492,7 +644,7 @@ describe('openbci-sdk',function() {
             before(function(done) {
                 ourBoard.connect(k.OBCISimulatorPortName)
                     .then(() => {
-                        ourBoard.once('ready',done);
+                        ourBoard.once('ready', done);
                     })
                     .catch(err => done(err));
             });
@@ -578,10 +730,8 @@ describe('openbci-sdk',function() {
                 ourBoard.once('ready',done);
             });
             it('can stop logging with sd',function(done) {
-                // console.log('yoyoyo');
                 ourBoard.sdStop()
                     .then(() => {
-                        // console.log('taco');
                         spy.should.have.been.calledWith('j');
                     })
                     .catch(err => done(err));

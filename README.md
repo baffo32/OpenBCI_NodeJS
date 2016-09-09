@@ -481,9 +481,9 @@ The essential precursor method to be called initially to establish a serial conn
 
 The system path of the OpenBCI board serial port to open. For example, `/dev/tty` on Mac/Linux or `COM1` on Windows.
 
-**_dontReset_**
+**_dontReset (optional)_**
 
-If set, the board will not be reset upon connection success.
+Don't send a soft reset command if board is streaming. (Default `false`) If `true`, no `stop` command or `softReset` command will be sent over the serial port. Further if a `sample` is emitted within 2 seconds, the global variable `streaming` will be set to `true`. This is useful for connecting to the board without changing the state it is currently in. I.e. stopping a long SD write.
 
 **_Returns_** a promise, fulfilled by a successful serial connection to the board.
 
@@ -491,9 +491,12 @@ If set, the board will not be reset upon connection success.
 
 Calls all [`.printPacketsBad()`](#method-print-packets-bad), [`.printPacketsRead()`](#method-print-packets-read), [`.printBytesIn()`](#method-print-bytes-in)
 
-### <a name="method-disconnect"></a> .disconnect()
+### <a name="method-disconnect"></a> .disconnect(dontStop)
 
-Closes the serial port opened by [`.connect()`](#method-connect).  Waits for stop streaming command to be sent if currently streaming.
+Closes the serial port opened by [`.connect()`](#method-connect). Waits for stop streaming command to be sent if currently streaming.
+
+**_dontStop (optional)_**
+Don't send a stop stream command to the board. (Default `false`) Allows the board to keep streaming after disconnection.
 
 **_Returns_** a promise, fulfilled by a successful close of the serial port object, rejected otherwise.
 
