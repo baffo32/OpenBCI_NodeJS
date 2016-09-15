@@ -505,6 +505,12 @@ describe('openbci-sdk',function() {
                 });
             });
             describe('#disconnect', function() {
+                after(done => {
+                    setTimeout(() => {
+                        console.log('ourBoard',ourBoard);
+                        done();
+                    }, 20)
+                });
                 it('should be rejected if not connected', function(done) {
                     ourBoard.disconnect().should.be.rejected.and.notify(done);
                 });
@@ -513,7 +519,9 @@ describe('openbci-sdk',function() {
 
                     ourBoard.disconnect().then(function() {
                         expect(ourBoard.connected).to.be.false;
-                        done();
+                        setTimeout(() => {
+                            done();
+                        }, 20); // Disconnect only waits 15ms
                     }).catch(done);
                 });
                 it('should close the serial port if open', function(done) {
@@ -524,23 +532,24 @@ describe('openbci-sdk',function() {
 
                     // Close will be emitted when the serial port is closed
                     ourBoard.once('close', function() {
-                        console.log('closed up here calling done');
-                        done();
+                        setTimeout(() => {
+                            done();
+                        }, 20); // Disconnect only waits 15ms
                     });
                 });
-                xit('should call stream stop if streaming', function(done) {
+                it('should call stream stop if streaming', function(done) {
                     ourBoard.connect(masterPortName).catch(done);
 
-                    ourBoard.once('ready', function() {
+                    ourBoard.once('ready', () => {
                         console.log(`board is connected ${ourBoard.connected}`);
                         ourBoard.streamStart().catch(done); // start streaming
 
-                        ourBoard.once('sample', function(sample) { // wait till we get a sample
+                        ourBoard.once('sample', (sample) => { // wait till we get a sample
                             // Reset the spy for the actual function under test
                             console.log('yo');
                             spy.reset();
-                            ourBoard.disconnect().then(function() {
-                                setTimeout(function() {
+                            ourBoard.disconnect().then(() => {
+                                setTimeout(() => {
                                     spy.should.have.been.calledWithExactly(k.OBCIStreamStop);
                                     done();
                                 }, 20); // Disconnect only waits 15ms
@@ -548,26 +557,29 @@ describe('openbci-sdk',function() {
                         });
                     });
                 });
-                xit('should not call stream stop if dontStop is true', function(done) {
+                it('should not call stream stop if dontStop is true', function(done) {
                     ourBoard.connect(masterPortName).catch(done);
 
-                    ourBoard.once('ready', function() {
+                    ourBoard.once('ready', () => {
                         ourBoard.streamStart().catch(done); // start streaming
 
-                        ourBoard.once('sample', function(sample) { // wait till we get a sample
+                        ourBoard.once('sample', (sample) => { // wait till we get a sample
                             // Reset the spy for the actual function under test
                             spy.reset();
-                            ourBoard.disconnect(true).then(function() { // call disconnect with `dontReset` to true
+                            // Disconnect but do not send comands and remove listeners
+                            ourBoard.disconnect(true).then(() => { // call disconnect with `dontReset` to true
                                 console.log('Device is streaming: ' + ourBoard.streaming ? 'true' : 'false');
                                 expect(spy.called).to.be.false;
                                 expect(ourBoard.streaming).to.be.true;
                                 // Now we need to connect and stop the stream
-                                ourBoard.connect(masterPortName, true).then(function() {
-                                    ourBoard.streamStop().then(function() {
-                                        ourBoard.disconnect().then(function() {
-                                            done();
-                                        }).catch(done);
-                                    })
+                                ourBoard.connect(masterPortName).then(() => {
+                                    ourBoard.streamStop().then(() => {
+                                      ourBoard.disconnect().then(() => {
+                                          setTimeout(() => {
+                                              done();
+                                          }, 20); // Disconnect only waits 15ms
+                                      }).catch(done);
+                                    });
                                 }).catch(done);
                             }).catch(done);
                         });
@@ -599,12 +611,14 @@ describe('openbci-sdk',function() {
             it('rawDataPacket is emitted', function(done) {
                 ourBoard.connect(masterPortName).catch(done);
                 // for the ready signal test
-                ourBoard.once('ready', function() {
+                ourBoard.once('ready', () => {
                     ourBoard.streamStart().catch(done); // start streaming
 
                     ourBoard.once('rawDataPacket',(rawDataPacket) => { // wait till we get a raw data packet
-                        ourBoard.disconnect().then(function() { // call disconnect
-                            done();
+                        ourBoard.disconnect().then(() => { // call disconnect
+                            setTimeout(() => {
+                                done();
+                            }, 20); // Disconnect only waits 15ms
                         }).catch(done);
                     });
                 });

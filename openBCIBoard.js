@@ -264,9 +264,11 @@ function OpenBCIFactory() {
 
             if(this.options.verbose) console.log('Serial port connected');
 
+            if(this._listeners.data) this.removeListener('data', this._listeners.data);
             this._listeners.data = data => {
                 this._processBytes(data);
             };
+
             boardSerial.on('data', this._listeners.data);
 
             boardSerial.once('open',() => {
@@ -302,6 +304,7 @@ function OpenBCIFactory() {
                 }
             });
 
+            if(this._listeners.close) this.removeListener('close', this._listeners.close);
             this._listeners.close = () => {
                 if (this.options.verbose) console.log('Serial Port Closed');
                 this.emit('close')
@@ -309,6 +312,7 @@ function OpenBCIFactory() {
 
             boardSerial.once('close', this._listeners.close);
 
+            if(this._listeners.error) this.removeListener('error', this._listeners.error);
             /* istanbul ignore next */
             this._listeners.error = err => {
                 if (this.options.verbose) console.log('Serial Port Error');
@@ -343,16 +347,15 @@ function OpenBCIFactory() {
                 if(!this.connected) return reject('no board connected');
                 this.connected = false;
                 // Remove active serial port listeners
-                this.removeListener('data', this._listeners.data);
-                this.removeListener('error', this._listeners.error);
+                if(this._listeners.data) this.removeListener('data', this._listeners.data);
+                if(this._listeners.error) this.removeListener('error', this._listeners.error);
                 if (this.serial) {
                     this.serial.close(() => {
-                        console.log('res 1');
+                        if (this._listeners.close) this.removeListener('close', this._listeners.close);
                         return resolve();
                     });
                 } else {
-                    console.log('res 2');
-                    this.removeListener('close', this._listeners.close);
+                    if (this._listeners.close) this.removeListener('close', this._listeners.close);
                     return resolve();
                 }
             },timeout);
