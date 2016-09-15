@@ -276,6 +276,8 @@ function OpenBCIFactory() {
                 var timeoutLength = this.options.simulate ? 50 : 300;
                 if(this.options.verbose) console.log('Serial port open');
                 if(dontReset) {
+                    // Is the module already streaming?
+                    // If not, let's detect if we are
                     this.streaming = false;
                     this.curParsingMode = k.OBCIParsingNormal;
                     var streamTimeout, sampleFunc;
@@ -290,17 +292,17 @@ function OpenBCIFactory() {
                     };
                     this.once('sample',sampleFunc);
                 } else {
-                  setTimeout(() => {
-                      if(this.options.verbose) console.log('Sending stop command, in case the device was left streaming...');
-                      this.write(k.OBCIStreamStop);
-                      if (this.serial) this.serial.flush();
-                  },timeoutLength);
-                  setTimeout(() => {
-                      if(this.options.verbose) console.log('Sending soft reset');
-                      this.softReset();
-                      resolve();
-                      if(this.options.verbose) console.log("Waiting for '$$$'");
-                  },timeoutLength + 250);
+                    setTimeout(() => {
+                        if(this.options.verbose) console.log('Sending stop command, in case the device was left streaming...');
+                        this.write(k.OBCIStreamStop);
+                        if (this.serial) this.serial.flush();
+                    },timeoutLength);
+                    setTimeout(() => {
+                        if(this.options.verbose) console.log('Sending soft reset');
+                        this.softReset();
+                        resolve();
+                        if(this.options.verbose) console.log("Waiting for '$$$'");
+                    },timeoutLength + 250);
                 }
             });
 
@@ -336,10 +338,15 @@ function OpenBCIFactory() {
         //  system before closing the serial port.
 
         var timeout = 0;
-        if (this.streaming && !dontStop) {
-            this.streamStop();
-            if(this.options.verbose) console.log('stop streaming');
-            timeout = 15; // Avg time is takes for message to propagate
+        if(this.streaming) {
+            console.log(`dontStop is ${dontStop}`);
+            if(dontStop === false || dontStop === undefined || dontStop === null) {
+              this.streamStop();
+              if(this.options.verbose) console.log('stop streaming');
+              timeout = 15; // Avg time is takes for message to propagate
+            } else {
+              if(this.options.verbose) console.log('will not stop streaming');
+            }
         }
 
         return new Promise((resolve, reject) => {
