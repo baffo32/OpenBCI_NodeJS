@@ -327,6 +327,7 @@ describe('openbci-sdk',function() {
             var disconnectSpy = sinon.spy(ourBoard,"disconnect");
             ourBoard.options.simulate.should.equal(false);
             ourBoard.connected = true;
+            ourBoard.serial = { close: callback => callback() };
             ourBoard.simulatorEnable().then(() => {
                 disconnectSpy.should.have.been.calledOnce;
                 ourBoard.options.simulate.should.equal(true);
@@ -360,12 +361,16 @@ describe('openbci-sdk',function() {
             });
             var disconnectSpy = sinon.spy(ourBoard,"disconnect");
             ourBoard.options.simulate.should.equal(true);
-            ourBoard.connected = true;
-            ourBoard.simulatorDisable().then(() => {
-                disconnectSpy.should.have.been.calledOnce;
-                ourBoard.options.simulate.should.equal(false);
-                done();
-            });
+            ourBoard.connect(k.OBCISimulatorPortName)
+                .then(() => {
+                    return ourBoard.simulatorDisable()
+                })
+                .then(() => {
+                    disconnectSpy.should.have.been.calledOnce;
+                    ourBoard.options.simulate.should.equal(false);
+                    done();
+                })
+                .catch(err => done(err));
         });
         it('should be able to propagate constructor options to simulator', function(done) {
             ourBoard = new openBCIBoard.OpenBCIBoard({

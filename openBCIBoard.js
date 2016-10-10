@@ -173,12 +173,6 @@ function OpenBCIFactory() {
             this.info.sampleRate = k.OBCISampleRate250
         }
 
-        this._listeners = {
-            close: null,
-            data: null,
-            error: null
-        }
-
         this._lowerChannelsSampleObject = null;
         this.sync = {
             curSyncObj: null,
@@ -267,12 +261,10 @@ function OpenBCIFactory() {
 
             if(this.options.verbose) console.log('Serial port connected');
 
-            if(this._listeners.data) this.removeListener('data', this._listeners.data);
-            this._listeners.data = data => {
+            var dataListener = data => {
                 this._processBytes(data);
-            };
-
-            boardSerial.on('data', this._listeners.data);
+            }
+            boardSerial.on('data', dataListener);
 
             boardSerial.once('open',() => {
                 this.connected = true;
@@ -309,22 +301,31 @@ function OpenBCIFactory() {
                 }
             });
 
-            if(this._listeners.close) this.removeListener('close', this._listeners.close);
-            this._listeners.close = () => {
+            var closeListener = () => {
+                this.serial = null;
+
+                this.commandsToWrite = 0;
+                clearTimeout(this.writer);
+                this.writer = null;
+
+                boardSerial.removeListener('data', dataListener);
+                boardSerial.removeListener('error', errorListener);
+
                 if (this.options.verbose) console.log('Serial Port Closed');
                 this.emit('close')
             };
+            boardSerial.once('close', closeListener);
 
-            boardSerial.once('close', this._listeners.close);
-
-            if(this._listeners.error) this.removeListener('error', this._listeners.error);
             /* istanbul ignore next */
-            this._listeners.error = err => {
+            var errorListener = err => {
+                boardSerial.removeListener('close', closeListener);
+
                 if (this.options.verbose) console.log('Serial Port Error');
                 this.emit('error',err);
-            };
 
-            boardSerial.once('error', this._listeners.error);
+                closeListener();
+            };
+            boardSerial.once('error', errorListener);
         });
     };
 
@@ -339,6 +340,8 @@ function OpenBCIFactory() {
     OpenBCIBoard.prototype.disconnect = function(dontStop) {
         // if we are streaming then we need to give extra time for that stop streaming command to propagate through the
         //  system before closing the serial port.
+
+        // TODO: wait for commandsToWrite to drain before closing
 
         var timeout = 0;
         if(this.streaming) {
@@ -356,18 +359,9 @@ function OpenBCIFactory() {
             setTimeout(() => {
                 if(!this.connected) return reject('no board connected');
                 this.connected = false;
-                // Remove active serial port listeners
-                if(this._listeners.data) this.removeListener('data', this._listeners.data);
-                if(this._listeners.error) this.removeListener('error', this._listeners.error);
-                if (this.serial) {
-                    this.serial.close(() => {
-                        if (this._listeners.close) this.removeListener('close', this._listeners.close);
-                        return resolve();
-                    });
-                } else {
-                    if (this._listeners.close) this.removeListener('close', this._listeners.close);
-                    return resolve();
-                }
+                this.serial.close(() => {
+                    resolve();
+                });
             },timeout);
         });
     };
@@ -487,6 +481,7 @@ function OpenBCIFactory() {
                     .catch(err => {
                         /* istanbul ignore if */
                         if(this.options.verbose) console.log('write failure: ' + err);
+                        // TODO: could this error be propagated back to the function that called write?
                     });
             } else {
                 if(this.options.verbose) console.log('Big problem! Writer started with no commands to write');
