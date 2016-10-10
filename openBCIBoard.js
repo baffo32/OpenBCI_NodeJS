@@ -224,10 +224,9 @@ function OpenBCIFactory() {
      * @param portName - a string that contains the port name of the OpenBCIBoard.
      * @param dontReset (optional) - Don't send a soft reset command if board is streaming.
      *  (Default `false`) If `true`, no `stop` command or `softReset` command will be sent
-     *  over the serial port. Further if a `sample` is emitted within 2 seconds, the
-     *  global variable `streaming` will be set to `true`. This is useful for connecting
-     *  to the board without changing the state it is currently in. I.e. stopping a long SD
-     *  write.
+     *  over the serial port. The software will wait 500 ms for a sample to detect if the
+     *  board is presently streaming or not. This is useful for connecting to the board
+     *  without changing the state it is currently in, i.e. stopping a long SD write.
      * @returns {Promise} if the board was able to connect.
      * @author AJ Keller (@pushtheworldllc)
      */

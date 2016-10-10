@@ -483,7 +483,7 @@ The system path of the OpenBCI board serial port to open. For example, `/dev/tty
 
 **_dontReset (optional)_**
 
-Don't send a soft reset command if board is streaming. (Default `false`) If `true`, no `stop` command or `softReset` command will be sent over the serial port. Further if a `sample` is emitted within 2 seconds, the global variable `streaming` will be set to `true`. This is useful for connecting to the board without changing the state it is currently in. I.e. stopping a long SD write.
+Don't send a soft reset command if board is streaming. (Default `false`) If `true`, no `stop` command or `softReset` command will be sent over the serial port. The software will wait 500 ms for a sample to detect if the board is presently streaming or not. This is useful for connecting to the board without changing the state it is currently in, i.e. stopping a long SD write.
 
 **_Returns_** a promise, fulfilled by a successful serial connection to the board.
 
