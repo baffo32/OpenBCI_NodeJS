@@ -82,6 +82,8 @@ describe('openbci-sdk',function() {
             expect(board.options.verbose).to.be.false;
             expect(board.sampleRate()).to.equal(250);
             expect(board.numberOfChannels()).to.equal(8);
+            expect(board.connected).to.be.false;
+            expect(board.streaming).to.be.false;
         });
         it('should be able to set ganglion mode', () => {
             var board = new openBCIBoard.OpenBCIBoard({
@@ -1190,6 +1192,39 @@ describe('openbci-sdk',function() {
             funcSpyTimeSyncSet.should.not.have.been.called;
             funcSpyTimeSyncedAccel.should.not.have.been.called;
             funcSpyTimeSyncedRawAux.should.not.have.been.called;
+        });
+        it("should emit a dropped packet on dropped packet",function(done) {
+          // Set to default state
+          ourBoard.previousSampleNumber = -1;
+          var sampleNumber0 = openBCISample.samplePacket(0);
+          ourBoard.once('droppedPacket',() => {
+              done();
+          });
+          var sampleNumber2 = openBCISample.samplePacket(2);
+          // Call the function under test
+          ourBoard._processDataBuffer(sampleNumber0);
+          ourBoard._processDataBuffer(sampleNumber2);
+        });
+        it("should emit a dropped packet on dropped packet with edge",function(done) {
+          // Set to default state
+          var count = 0;
+          ourBoard.previousSampleNumber = 253;
+          var buf1 = openBCISample.samplePacket(254);
+          var countFunc = arr => {
+              count++;
+          };
+          ourBoard.on('droppedPacket', countFunc);
+          var buf2 = openBCISample.samplePacket(0);
+          var buf3 = openBCISample.samplePacket(1);
+          // Call the function under test
+          ourBoard._processDataBuffer(buf1);
+          ourBoard._processDataBuffer(buf2);
+          ourBoard._processDataBuffer(buf3);
+          setTimeout(() => {
+            ourBoard.removeListener('droppedPacket', countFunc);
+            expect(count).to.equal(1);
+            done();
+          }, 10)
         });
     });
 

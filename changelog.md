@@ -1,3 +1,21 @@
+# 1.3.2
+
+### Enhancements
+
+* Added master time offset `timeOffsetMaster` to `syncObj` which is a running average across sync attempts.
+
+# 1.3.1
+
+### Bug Fixes
+
+* Fixed bug where `connected` and `streaming` were not set in constructor
+
+# 1.3.0
+
+### New Features
+
+* Add dropped packet detection, new event `droppedPacket` can be added to get an array of dropped packet numbers in the case of the dropped packet event.
+
 # 1.2.3
 
 ### Enhancements

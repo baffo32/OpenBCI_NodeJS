@@ -145,6 +145,9 @@ function OpenBCIFactory() {
         this.accelArray = [0,0,0]; // X, Y, Z
         this.channelSettingsArray = k.channelSettingsArrayInit(k.numberOfChannelsForBoardType(this.options.boardType));
         this.writeOutArray = new Array(100);
+        // Booleans
+        this.connected = false;
+        this.streaming = false;
         // Buffers
         this.buffer = null;
         this.masterBuffer = masterBufferMaker();
@@ -191,9 +194,10 @@ function OpenBCIFactory() {
         this.curParsingMode = k.OBCIParsingReset;
         this.commandsToWrite = 0;
         this.impedanceArray = openBCISample.impedanceArray(k.numberOfChannelsForBoardType(this.options.boardType));
-        this.writeOutDelay = k.OBCIWriteIntervalDelayMSShort;
+        this.previousSampleNumber = -1;
         this.sampleCount = 0;
         this.timeOfPacketArrival = 0;
+        this.writeOutDelay = k.OBCIWriteIntervalDelayMSShort;
         // Strings
 
         // NTP
@@ -1788,6 +1792,11 @@ function OpenBCIFactory() {
     OpenBCIBoard.prototype._processQualifiedPacket = function(rawDataPacketBuffer) {
         if (!rawDataPacketBuffer) return;
         if (rawDataPacketBuffer.byteLength !== k.OBCIPacketSize) return;
+        var missedPacketArray = openBCISample.droppedPacketCheck(this.previousSampleNumber, rawDataPacketBuffer[k.OBCIPacketPositionSampleNumber]);
+        if (missedPacketArray) {
+            this.emit('droppedPacket', missedPacketArray);
+        }
+        this.previousSampleNumber = rawDataPacketBuffer[k.OBCIPacketPositionSampleNumber];
         var packetType = openBCISample.getRawPacketType(rawDataPacketBuffer[k.OBCIPacketPositionStopByte]);
         switch (packetType) {
             case k.OBCIStreamPacketStandardAccel:
@@ -1976,6 +1985,8 @@ function OpenBCIFactory() {
                     } else {
                         this.sync.timeOffsetMaster = this.sync.curSyncObj.timeOffset;
                     }
+
+                    this.sync.curSyncObj.timeOffsetMaster = this.sync.timeOffsetMaster;
 
                     if (this.options.verbose) {
                         console.log(`Master offset ${this.sync.timeOffsetMaster} ms`);

@@ -902,6 +902,7 @@ Send the command to tell the board to start the syncing protocol. Must be connec
     timeRoundTrip: 0, // Simply timeSyncSetPacket - timeSyncSent.
     timeTransmission: 0, // Estimated time it took for time sync set packet to be sent from Board to Driver.
     timeOffset: 0, // The map (or translation) from boardTime to module time.
+    timeOffsetMaster: 0, // The map (or translation) from boardTime to module time averaged over time syncs.
     valid: false // If there was an error in the process, valid will be false and no time sync was done. It's important to resolve this so we can perform multiple promise syncs as show in the example below.
 }
 ```
@@ -1047,13 +1048,17 @@ ourBoard.write('o');
 
 Emitted when the serial connection to the board is closed.
 
+### <a name="event-close"></a> .on('droppedPacket', callback)
+
+Emitted when a packet (or packets) are dropped. Returns an array.
+
 ### <a name="event-error"></a> .on('error', callback)
 
 Emitted when there is an on the serial port.
 
 ### <a name="event-impedance-array"></a> .on('impedanceArray', callback)
 
-Emitted when there is a new impedanceArray available.
+Emitted when there is a new impedanceArray available. Returns an array.
 
 ### <a name="event-query"></a> .on('query', callback)
 
