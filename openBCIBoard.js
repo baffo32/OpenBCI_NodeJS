@@ -278,12 +278,12 @@ function OpenBCIFactory() {
                     var streamTimeout, sampleFunc;
                     streamTimeout = setTimeout(() => {
                         this.removeListener('sample', sampleFunc);
-                        resolve(); // return here results in immediate func exit
+                        resolve();
                     }, 500); // Some serial ports flush a couple times a second
                     sampleFunc = () => {
                         clearTimeout(streamTimeout);
                         this.streaming = true;
-                        resolve(); // return here results in immediate func exit
+                        resolve();
                     };
                     this.once('sample',sampleFunc);
                 } else {
