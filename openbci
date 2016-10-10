@@ -1,0 +1,377 @@
+#!/usr/bin/env node
+
+var OpenBCIBoard = require('.').OpenBCIBoard;
+var program = require('commander');
+
+var board;
+var command = () => true;
+var commandNeedsConnect = true;
+var chain = Promise.resolve();
+
+var defaultChannelSettings = {
+    'powerDown' : false,
+    'gain' : 24,
+    'inputType' : 'normal',
+    'bias' : true,
+    'srb2' : true,
+    'srb1' : false
+};
+
+var channelSettings = [];
+function setChannelSetting(channel, setting, value)
+{
+    if (!channelSettings[channel])
+        channelSettings[channel] = {}
+    channelSettings[channel][setting] = value;
+}
+
+program
+    .description('Interacts with OpenBCI biosensor boards.')
+    .option('-p, --port <port>',
+        'Connect to the specified port'
+    )
+    .option('-r, --baudRate <rate>',
+        'Baud Rate [115200]',
+        115200
+    )
+    .option('-t, --boardType <type>',
+        '(default|daisy|ganglion) [default]',
+        'default'
+    )
+    .option('-s, --simulate',
+        'Full functionality, just mock data'
+    )
+    .option('--simulatorBoardFailure',
+        'Simulates board communications failure'
+    )
+    .option('--simulatorDaisyModuleAttached',
+        'Simulates a daisy module.'
+    )
+    .option('--simulatorFirmwareVersion <v>',
+        'Can simulate firmware v2 (v1|v2) [v1]',
+        'v1'
+    )
+    .option('--simulatorHasNoAccelerometer',
+        'Send packets without accelerometer data',
+        () => program.simulatorHasAccelerometer = false
+    )
+    .option('--simulatorNoInjectAlpha',
+        'Do not inject a 10Hz alpha wave',
+        () => program.simulatorInjectAlpha = false
+    )
+    .option('--simulatorInjectLineNoise <NHz>',
+        'Injects line noise (60Hz|50Hz|None) [None]',
+        'None'
+    )
+    .option('--simulatorSampleRate <rate>',
+        'The sample rate to use for the simulator'
+    )
+    .option('--simulatorSerialPortFailure',
+        'Simulates unable to open a connection'
+    )
+    .option('-y, --sntpTimeSync',
+        'Use a time server instead of local time'
+    )
+    .option('--sntpTimeSyncHost <host>',
+        'The time server to use [pool.ntp.org]',
+        'pool.ntp.org'
+    )
+    .option('--sntpTimeSyncPort <port>',
+        'The port to access the time server [123]',
+        123
+    )
+    .option('-v, --verbose',
+        'Print out useful debugging events'
+    )
+    .option('-d, --debugSession',
+        'Prints out debugging packet information'
+    );
+
+// mutates a commandline command into a call to board[command]
+function defaultCommand(cmd, early) {
+    return function() {
+        command = () => board[cmd].apply(board, arguments);
+        commandNeedsConnect = ! early;
+    }
+}
+program
+    .command('autoFindOpenBCIBoard')
+    .description('Automatically find an OpenBCI board')
+    .action(defaultCommand('autoFindOpenBCIBoard', true));
+
+program
+    .command('softReset')
+    .description('Attempt to reset the board')
+    .action(() => program.reset = true);
+
+program
+    .command('channelOff <channelNumber>')
+    .description('Turn off a specified channel (1-16)')
+    .action(defaultCommand('channelOff'));
+
+program
+    .command('channelOn <channelNumber>')
+    .description('Turn on a specified channel (1-16)')
+    .action(defaultCommand('channelOn'));
+
+program
+    .command('channelSet <channel>')
+    .description('Set a channel\'s settings (1-16)')
+    .option(
+        '-d, --powerDown',
+        'Powers the channel down'
+    )
+    .option(
+        '-g, --gain <gain>',
+        'Sets the gain for the channel (1|2|4|6|8|12|24) [24]',
+        24
+    )
+    .option(
+        '-i, --inputType <type>',
+        'Selects the ADC channel input source (normal|shorted|biasMethod|mvdd|temp|testsig|biasDrp|biasDrn)'
+    )
+    .option(
+        '-b, --no-bias',
+        'Removes the channel input from bias generation'
+    )
+    .option(
+        '-2, --no-srb2',
+        'Disconnects this input from SRB2'
+    )
+    .option(
+        '-1, --srb1',
+        'Connects all channels\' inputs to SRB1'
+    )
+    .action((channelNumber, options) => command = () =>
+        board.channelSet(
+            channelNumber,
+            options.powerDown,
+            options.gain,
+            options.inputType,
+            options.bias,
+            options.srb2,
+            options.srb1
+        )
+    );
+
+program
+    .command('channelGet <channelNumber>')
+    .description('Get a channel\'s settings (1-8)')
+    .action(channelNumber => command = () =>
+        board.getSettingsForChannel(parseInt(channelNumber))
+    );
+    // TODO: this is poorly documented in the API; check how to use in source
+    // output in a format that can be input to channelSet
+
+// TODO: impedance testing
+
+program
+    .command('listPorts')
+    .description('List available ports to choose a device')
+    .action(defaultCommand('listPorts', true));
+
+program
+    .command('numberOfChannels')
+    .description('Convert options to channel count')
+    .action(defaultCommand('numberOfChannels', true));
+
+program
+    .command('printRegisterSettings')
+    .description('Prints all register settings')
+    .action(defaultCommand('printRegisterSettings'));
+
+program
+    .command('radioBaudRateSet <speed>')
+    .description('Set the dongle baud rate (default|fast)')
+    .action(defaultCommand('radioBaudRateSet'));
+
+program
+    .command('radioChanGet')
+    .description('Query the system for its radio channel')
+    .action(defaultCommand('radioChannelGet'));
+
+program
+    .command('radioChanSet <channel>')
+    .description('Set the system radio channel (1-25)')
+    .option('--dongle-only',
+        'Set ONLY the radio dongle channel number'
+    )
+    .action((channelNumber, options) => command = () => {
+        if (options['dongle-only'])
+            return board.radioChannelSetHostOverride(channelNumber);
+        else
+            return board.radioChannelSet(channelNumber);
+    });
+
+program
+    .command('radioPollTimeGet')
+    .description('Query device for its poll time')
+    .action(defaultCommand('radioPollTimeGet'));
+
+program
+    .command('radioPollTimeSet <time>')
+    .description('Set the OpenBCI poll time (0-255)')
+    .action(defaultCommand('radioPollTimeSet'));
+
+program
+    .command('radioSystemStatusGet')
+    .description('Ask if both radios are up')
+    .action(defaultCommand('radioSystemStatusGet'));
+
+program
+    .command('sampleRate')
+    .description('Convert options to sample rate')
+    .action(defaultCommand('sampleRate', true));
+
+program
+    .command('sdStart <duration>')
+    .description('Start logging to the SD card\n'+
+    '    (14sec|5min|15min|30min|1hour|2hour|4hour|12hour|24hour)')
+    .action(defaultCommand('sdStart'));
+
+program
+    .command('sdStop')
+    .description('Stop logging to the SD card')
+    .action(defaultCommand('sdStop'));
+
+program
+    .command('sntpGetOffset')
+    .description('Query the current time offset')
+    .action(defaultCommand('sntpGetOffset'));
+
+program
+    .command('streamStart')
+    .description('Start streaming packets')
+    .action(defaultCommand('streamStart'));
+
+program
+    .command('streamStop')
+    .description('Stop streaming packets')
+    .action(defaultCommand('streamStop'))
+
+program
+    .command('sample [count]')
+    .description('Output a number of samples (infinity)')
+    .action((count) => command = () => new Promise((resolve,reject) => {
+        if (! count) count = 1.0 / 0.0; // infinity
+        if (program.simulate)
+            board.streamStart().catch(err => reject(err));
+        else if (! board.streaming)
+            reject('Board not streaming');
+        var listener = sample => { 
+            -- count;
+            if (! count) {
+                board.removeListener('sample', listener);
+                resolve();
+            }
+            console.log(JSON.stringify(sample));
+        }
+        board.on('sample', listener);
+    }));
+
+program
+    .command('syncClocks')
+    .description('Start the mid-stream syncing protocol')
+    .action(defaultCommand('syncClocksFull'));
+
+program
+    .command('testSignal <signal>')
+    .description('Select test signal applied to all channels\n' +
+    '    (dc|ground|pulse1xFast|pulse1xSlow|pulse2xFast|pulse2xSlow|none)')
+    .action(defaultCommand('testSignal'));
+
+program
+    .command('time')
+    .description('Convert options to unix time in ms')
+    .action(defaultCommand('time', true));
+
+// TODO: no need for this command, just output this in response to softReset
+program
+    .command('usingVersionTwoFirmware')
+    .description('Reset & check if firmware is v2 or greater')
+    .action(() => {
+        program.reset = true;
+        return defaultCommand('usingVersionTwoFirmware');
+    });
+
+program
+    .command('write <dataToWrite>')
+    .description('Send commands to the board')
+    .action(defaultCommand('write'));
+
+
+program.on('*', cmd => {
+    console.log('Unrecognized: ' + cmd);
+    program.help();
+});
+program.parse(process.argv);
+
+
+board = new OpenBCIBoard(program);
+
+
+if (commandNeedsConnect)
+    chain = chain
+        .then(() => {
+            if (! program.port)
+                return board.autoFindOpenBCIBoard()
+                    .then(port => program.port = port);
+        })
+
+chain = chain
+    .then(() => {
+        if (program.sntpTimeSync)
+            return board.sntpStart();
+    });
+
+if (commandNeedsConnect)
+    chain = chain
+        .then(() => {
+            var promise = new Promise((resolve,reject) => {
+                if (program.reset)
+                    board.on('ready',() => resolve());
+                else
+                    resolve();
+            });
+            if (program.verbose)
+                board.on('eot', data => console.log(data));
+            return board.connect(program.port, !program.reset)
+                .then(promise);
+        });
+
+chain = chain
+    .then(command)
+    .then(result => {
+        if (result) {
+            if (typeof(result) == 'string')
+                console.log(result);
+            else
+                console.log(JSON.stringify(result, null, 4));
+        }
+    })
+    .then(() => {
+        if (program.sntpTimeSync)
+            return board.sntpStop();
+    });
+
+if (commandNeedsConnect)
+    chain = chain
+        .then(() => {
+            if (program.debugSession)
+                return board.debugSession();
+        })
+        .then(() => board.disconnect(true));
+
+chain.then(() => {
+
+    process.exit(0);
+
+}, error => {
+
+    if (error.stack)
+        console.log(error.stack);
+    else
+        console.log(error);
+
+    process.exit(-1);
+});
