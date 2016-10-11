@@ -447,14 +447,14 @@ describe('openbci-sdk',function() {
                                     done();
                                 }, conditionalTimeout);
                             }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
-                        }).catch(done);
+                        }).catch(err => done(err));
                     });
 
                     // Call the function under test
                     ourBoard.connect(masterPortName).then(function() {
                         // Should be looking for the reset message
                         expect(ourBoard.curParsingMode).to.equal(k.OBCIParsingReset);
-                    }).catch(done);
+                    }).catch(err => done(err));
                 });
                 it('should, after promise resolves, set streaming false if dontReset was false not send a stop stream command or softReset commands', function(done) {
                     // Call the function under test
@@ -466,6 +466,9 @@ describe('openbci-sdk',function() {
                         //  normal mode
                         expect(ourBoard.curParsingMode).to.equal(k.OBCIParsingNormal);
 
+                        // Make sure the write function was not called
+                        spy.called.should.be.false;
+
                         // Must disconnect from board for the sake of other tests
                         ourBoard.disconnect().then(function() { // call disconnect
                             setTimeout(function() {
@@ -474,17 +477,11 @@ describe('openbci-sdk',function() {
                                     done();
                                 }, conditionalTimeout);
                             }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
-                        }).catch(done);
-                    }).catch(done);
-
-                    setTimeout(function() {
-                        // Make sure the write function was not called
-                        spy.called.should.be.false;
-
-                    }, 400); // softReset sent after 300 ms.
+                        }).catch(err => done(err));
+                    }).catch(err => done(err));
 
                 });
-                it('should, after promise resolves, set streaming true if dontReset was true and a sample is emitted within 2 seconds', function(done) {
+                it('should, after promise resolves, set streaming true if dontReset was true and a sample is emitted within 500 ms', function(done) {
 
                     // Call the function under test
                     ourBoard.connect(masterPortName,true).then(function() {
@@ -498,8 +495,8 @@ describe('openbci-sdk',function() {
                                     done();
                                 }, conditionalTimeout);
                             }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
-                        }).catch(done);
-                    }).catch(done);
+                        }).catch(err => done(err));
+                    }).catch(err => done(err));
 
                     setTimeout(function() {
                         // Make sure the write function was not called
@@ -508,7 +505,7 @@ describe('openbci-sdk',function() {
                         // This will cause sample to be emitted.
                         ourBoard._processBytes(openBCISample.samplePacket(0));
 
-                    }, 400); // softReset sent after 300 ms.
+                    }, 400); // sample detection waits 500 ms
                 });
             });
             describe('#disconnect', function() {
@@ -523,13 +520,13 @@ describe('openbci-sdk',function() {
                         setTimeout(() => {
                             done();
                         }, 20); // Disconnect only waits 15ms
-                    }).catch(done);
+                    }).catch(err => done(err));
                 });
                 xit('should close the serial port if open', function(done) {
                     ourBoard.connect(masterPortName).then(function() {
                         // Call the function under test
-                        ourBoard.disconnect().catch(done);
-                    }).catch(done);
+                        ourBoard.disconnect().catch(err => done(err));
+                    }).catch(err => done(err));
 
                     // Close will be emitted when the serial port is closed
                     ourBoard.once('close', function() {
@@ -539,11 +536,11 @@ describe('openbci-sdk',function() {
                     });
                 });
                 xit('should call stream stop if streaming', function(done) {
-                    ourBoard.connect(masterPortName).catch(done);
+                    ourBoard.connect(masterPortName).catch(err => done(err));
 
                     ourBoard.once('ready', () => {
                         console.log(`board is connected ${ourBoard.connected}`);
-                        ourBoard.streamStart().catch(done); // start streaming
+                        ourBoard.streamStart().catch(err => done(err)); // start streaming
 
                         ourBoard.once('sample', (sample) => { // wait till we get a sample
                             // Reset the spy for the actual function under test
@@ -554,17 +551,17 @@ describe('openbci-sdk',function() {
                                     spy.should.have.been.calledWithExactly(k.OBCIStreamStop);
                                     done();
                                 }, 20); // Disconnect only waits 15ms
-                            }).catch(done);
+                            }).catch(err => done(err));
                         });
                     });
                 });
                 xit('should not call stream stop if dontStop is true', function(done) {
-                    ourBoard.connect(masterPortName).catch(done);
+                    ourBoard.connect(masterPortName).catch(err => done(err));
                     console.log('starting');
 
                     ourBoard.once('ready', () => {
                       console.log(`ready`);
-                        ourBoard.streamStart().catch(done); // start streaming
+                        ourBoard.streamStart().catch(err => done(err)); // start streaming
 
                         ourBoard.once('sample', (sample) => { // wait till we get a sample
                             console.log('got sample event 1');
@@ -598,14 +595,14 @@ describe('openbci-sdk',function() {
                                                   setTimeout(() => {
                                                       done();
                                                   }, 20); // Disconnect only waits 15ms
-                                              }).catch(done);
+                                              }).catch(err => done(err));
 
                                             }, 20);
-                                        }).catch(done);
+                                        }).catch(err => done(err));
                                     });
 
-                                }).catch(done);
-                            }).catch(done);
+                                }).catch(err => done(err));
+                            }).catch(err => done(err));
                         });
                     });
                 });
@@ -613,10 +610,10 @@ describe('openbci-sdk',function() {
             it('gets the ready signal from the board and sends a stop streaming command before disconnecting', function(done) {
                 //spy = sinon.spy(ourBoard,"_writeAndDrain");
 
-                ourBoard.connect(masterPortName).catch(done);
+                ourBoard.connect(masterPortName).catch(err => done(err));
 
                 ourBoard.once('ready', function() {
-                    ourBoard.streamStart().catch(done); // start streaming
+                    ourBoard.streamStart().catch(err => done(err)); // start streaming
 
                     ourBoard.once('sample',(sample) => { // wait till we get a sample
                         ourBoard.disconnect().then(function() { // call disconnect
@@ -628,22 +625,22 @@ describe('openbci-sdk',function() {
                                     done();
                                 }, conditionalTimeout);
                             }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
-                        }).catch(done);
+                        }).catch(err => done(err));
                     });
                 });
             });
             it('rawDataPacket is emitted', function(done) {
-                ourBoard.connect(masterPortName).catch(done);
+                ourBoard.connect(masterPortName).catch(err => done(err));
                 // for the ready signal test
                 ourBoard.once('ready', () => {
-                    ourBoard.streamStart().catch(done); // start streaming
+                    ourBoard.streamStart().catch(err => done(err)); // start streaming
 
                     ourBoard.once('rawDataPacket',(rawDataPacket) => { // wait till we get a raw data packet
                         ourBoard.disconnect().then(() => { // call disconnect
                             setTimeout(() => {
                                 done();
                             }, 20); // Disconnect only waits 15ms
-                        }).catch(done);
+                        }).catch(err => done(err));
                     });
                 });
             });
@@ -688,7 +685,7 @@ describe('openbci-sdk',function() {
             });
             afterEach(function(done) {
                 ourBoard.sdStop()
-                    .catch(done);
+                    .catch(err => done(err));
                 ourBoard.once('eot', () => {
                     done();
                 });
@@ -756,7 +753,7 @@ describe('openbci-sdk',function() {
             });
             it('can start 24 hours of logging with sd',function(done) {
                 ourBoard.sdStart('24hour')
-                    .catch(done);
+                    .catch(err => done(err));
                 ourBoard.once('eot', () => {
                     done();
                 });

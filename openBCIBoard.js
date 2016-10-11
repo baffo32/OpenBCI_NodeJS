@@ -280,6 +280,7 @@ function OpenBCIFactory() {
                         this.removeListener('sample', sampleFunc);
                         resolve();
                     }, 500); // Some serial ports flush a couple times a second
+                             // TODO: what ports?  sounds like a bug?
                     sampleFunc = () => {
                         clearTimeout(streamTimeout);
                         this.streaming = true;
