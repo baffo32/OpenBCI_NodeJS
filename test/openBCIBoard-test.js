@@ -616,12 +616,12 @@ describe('openbci-sdk',function() {
                     ourBoard.streamStart().catch(err => done(err)); // start streaming
 
                     ourBoard.once('sample',(sample) => { // wait till we get a sample
-                        ourBoard.disconnect().then(function() { // call disconnect
+                        ourBoard.disconnect().then(() => { // call disconnect
                             //console.log('Device is streaming: ' + ourBoard.streaming ? 'true' : 'false');
-                            setTimeout(function() {
+                            setTimeout(() => {
                                 spy.should.have.been.calledWithMatch(k.OBCIStreamStop);
                                 var conditionalTimeout = realBoard ? 300 : 0;
-                                setTimeout(function() {
+                                setTimeout(() => {
                                     done();
                                 }, conditionalTimeout);
                             }, 4 * k.OBCIWriteIntervalDelayMSShort); // give plenty of time
@@ -632,7 +632,7 @@ describe('openbci-sdk',function() {
             it('rawDataPacket is emitted', function(done) {
                 ourBoard.connect(masterPortName).catch(err => done(err));
                 // for the ready signal test
-                ourBoard.once('ready', () => {
+                ourBoard.once('ready', function() {
                     ourBoard.streamStart().catch(err => done(err)); // start streaming
 
                     ourBoard.once('rawDataPacket',(rawDataPacket) => { // wait till we get a raw data packet
@@ -679,7 +679,7 @@ describe('openbci-sdk',function() {
             before(function(done) {
                 ourBoard.connect(k.OBCISimulatorPortName)
                     .then(() => {
-                        ourBoard.once('ready', done);
+                        ourBoard.once('ready',done);
                     })
                     .catch(err => done(err));
             });
