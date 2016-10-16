@@ -509,33 +509,37 @@ describe('openbci-sdk',function() {
                 });
             });
             describe('#disconnect', function() {
-                xit('should be rejected if not connected', function(done) {
+                it('should be rejected if not connected', function(done) {
                     ourBoard.disconnect().should.be.rejected.and.notify(done);
                 });
-                xit('should disconnect if connected', function(done) {
-                    ourBoard.connected = true;
-
-                    ourBoard.disconnect().then(function() {
-                        expect(ourBoard.connected).to.be.false;
-                        setTimeout(() => {
-                            done();
-                        }, 20); // Disconnect only waits 15ms
-                    }).catch(err => done(err));
+                it('should disconnect if connected', function(done) {
+                    ourBoard.connect(masterPortName)
+                        .then(function() {
+                            return ourBoard.disconnect();
+                        })
+                        .then(function() {
+                            expect(ourBoard.connected).to.be.false;
+                            setTimeout(() => {
+                                done();
+                            }, 20); // Disconnect only waits 15ms
+                        })
+                        .catch(err => done(err));
                 });
-                xit('should close the serial port if open', function(done) {
+                it('should close the serial port if open', function(done) {
                     ourBoard.connect(masterPortName).then(function() {
+
+                        // Close will be emitted when the serial port is closed
+                        ourBoard.once('close', function() {
+                            setTimeout(() => {
+                                done();
+                            }, 20); // Disconnect only waits 15ms
+                        });
+
                         // Call the function under test
                         ourBoard.disconnect().catch(err => done(err));
                     }).catch(err => done(err));
-
-                    // Close will be emitted when the serial port is closed
-                    ourBoard.once('close', function() {
-                        setTimeout(() => {
-                            done();
-                        }, 20); // Disconnect only waits 15ms
-                    });
                 });
-                xit('should call stream stop if streaming', function(done) {
+                it('should call stream stop if streaming', function(done) {
                     ourBoard.connect(masterPortName).catch(err => done(err));
 
                     ourBoard.once('ready', () => {
@@ -555,7 +559,7 @@ describe('openbci-sdk',function() {
                         });
                     });
                 });
-                xit('should not call stream stop if dontStop is true', function(done) {
+                it('should not call stream stop if dontStop is true', function(done) {
                     ourBoard.connect(masterPortName).catch(err => done(err));
                     console.log('starting');
 
@@ -567,7 +571,7 @@ describe('openbci-sdk',function() {
                             console.log('got sample event 1');
                             // Reset the spy for the actual function under test
                             spy.reset();
-                            // Disconnect but do not send comands and remove listeners
+                            // Disconnect but do not send comands
                             console.log(`Device is streaming b4: ${ourBoard.streaming ? 'true' : 'false'}`);
                             ourBoard.disconnect(true).then(() => { // call disconnect with `dontReset` to true
                                 console.log(`Device is streaming af: ${ourBoard.streaming ? 'true' : 'false'}`);
@@ -575,33 +579,11 @@ describe('openbci-sdk',function() {
                                 expect(spy.called).to.be.false;
                                 expect(ourBoard.streaming).to.be.true;
 
-                                // Now we need to connect and stop the stream
-                                ourBoard.connect(masterPortName, true).then(() => {
-                                    console.log("made it to the connect function");
-                                    if (masterPortName === k.OBCISimulatorPortName) {
-                                      // Need to jump start the simulator
-                                      console.log("jump starting board");
-                                      ourBoard.serial._startStream();
-                                      ourBoard.serial.streaming = true;
-                                    }
-                                    ourBoard.once('sample', (sample) => {
-                                        console.log('got a sample!!');
-                                        console.log(`connected`);
-                                        ourBoard.streamStop().then(() => {
-                                            console.log(`stream stopped`);
-                                            setTimeout(() => {
-                                              ourBoard.disconnect().then(() => {
-                                                  console.log(`disconnected`);
-                                                  setTimeout(() => {
-                                                      done();
-                                                  }, 20); // Disconnect only waits 15ms
-                                              }).catch(err => done(err));
+                                // TODO: for now, the simulator stops streaming on close.
+                                //       at some point, change the simulator to run separately
+                                //       from connection, and stop it from streaming here
+				done();
 
-                                            }, 20);
-                                        }).catch(err => done(err));
-                                    });
-
-                                }).catch(err => done(err));
                             }).catch(err => done(err));
                         });
                     });

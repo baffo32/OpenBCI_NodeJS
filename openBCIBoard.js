@@ -268,12 +268,11 @@ function OpenBCIFactory() {
 
             boardSerial.once('open',() => {
                 this.connected = true;
+                this.streaming = false;
                 var timeoutLength = this.options.simulate ? 50 : 300;
                 if(this.options.verbose) console.log('Serial port open');
                 if(dontReset) {
-                    // Is the module already streaming?
-                    // If not, let's detect if we are
-                    this.streaming = false;
+                    // Set streaming to true if samples are coming in
                     this.curParsingMode = k.OBCIParsingNormal;
                     var streamTimeout, sampleFunc;
                     streamTimeout = setTimeout(() => {
