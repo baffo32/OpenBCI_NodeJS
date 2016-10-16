@@ -225,9 +225,9 @@ function OpenBCIFactory() {
      * @author AJ Keller (@pushtheworldllc)
      */
     OpenBCIBoard.prototype.connect = function(portName, dontReset) {
-        this.connected = false;
-
         return new Promise((resolve,reject) => {
+            if (this.connected) reject('Disconnect first.');
+
             // If we are simulating, set boardSerial to fake name
             var boardSerial;
             /* istanbul ignore else */
@@ -313,7 +313,10 @@ function OpenBCIFactory() {
                 boardSerial.removeListener('error', errorListener);
 
                 if (this.options.verbose) console.log('Serial Port Closed');
-                this.emit('close')
+                if (this.connected) {
+                  this.emit('close')
+                  this.connected = false;
+                }
             };
             boardSerial.once('close', closeListener);
 
@@ -347,7 +350,7 @@ function OpenBCIFactory() {
         var timeout = 0;
         if(this.streaming) {
             console.log(`dontStop is ${dontStop}`);
-            if(dontStop === false || dontStop === undefined || dontStop === null) {
+            if(!dontStop) {
               this.streamStop();
               if(this.options.verbose) console.log('stop streaming');
               timeout = 15; // Avg time is takes for message to propagate
@@ -359,7 +362,6 @@ function OpenBCIFactory() {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 if(!this.connected) return reject('no board connected');
-                this.connected = false;
                 this.serial.close(() => {
                     resolve();
                 });
