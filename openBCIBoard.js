@@ -348,7 +348,6 @@ function OpenBCIFactory() {
 
         var timeout = 0;
         if(this.streaming) {
-            console.log(`dontStop is ${dontStop}`);
             if(!dontStop) {
               this.streamStop();
               if(this.options.verbose) console.log('stop streaming');
