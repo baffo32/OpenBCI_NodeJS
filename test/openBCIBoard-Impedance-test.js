@@ -19,7 +19,7 @@ describe('#impedanceTesting', function () {
       fragmentation: k.OBCISimulatorFragmentationRandom
     });
     var useSim = () => {
-      ourBoard.simulatorEnable().then(() => {
+      return ourBoard.simulatorEnable().then(() => {
         return ourBoard.connect(k.OBCISimulatorPortName);
       });
     };
@@ -28,7 +28,7 @@ describe('#impedanceTesting', function () {
         return ourBoard.connect(portName);
       })
       .catch(() => {
-        useSim();
+        return useSim();
       })
       .then(() => {
         console.log('connected');
