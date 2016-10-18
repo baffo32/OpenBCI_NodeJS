@@ -290,6 +290,7 @@ function OpenBCIFactory () {
         setTimeout(() => {
           if (this.options.verbose) console.log('Sending stop command, in case the device was left streaming...');
           this.write(k.OBCIStreamStop);
+          // this flush is intended to discard any incoming stream data
           if (this.serial) this.serial.flush();
         }, timeoutLength);
         setTimeout(() => {
@@ -493,6 +494,8 @@ function OpenBCIFactory () {
   * @author AJ Keller (@pushtheworldllc)
   */
   OpenBCIBoard.prototype._writeAndDrain = function (data) {
+    // console.log('_writeAndDrain: ' + JSON.stringify('' + data));
+
     return new Promise((resolve, reject) => {
       if (!this.serial) reject('Serial port not open');
       this.serial.write(data, (error) => {
@@ -1480,7 +1483,6 @@ function OpenBCIFactory () {
           if (!this.streaming) {
             this.curParsingMode = k.OBCIParsingEOT;
           }
-          this.writeOutDelay = k.OBCIWriteIntervalDelayMSNone;
           return this.write(command);
         })
         .catch(err => reject(err));
@@ -1500,7 +1502,6 @@ function OpenBCIFactory () {
       if (!this.streaming) {
         this.curParsingMode = k.OBCIParsingEOT;
       }
-      this.writeOutDelay = k.OBCIWriteIntervalDelayMSNone;
       return this.write(k.OBCISDLogStop);
     });
   };
@@ -1615,6 +1616,8 @@ function OpenBCIFactory () {
   * @author AJ Keller (@pushtheworldllc)
   */
   OpenBCIBoard.prototype._processBytes = function (data) {
+    // console.log('_processBytes(' + this.curParsingMode + '): ' + JSON.stringify('' + data));
+
     // Concat old buffer
     var oldDataBuffer = null;
     if (this.buffer) {
